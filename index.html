@@ -480,50 +480,264 @@
 
         async function downloadPDF() {
             try {
-                // Hide the download button temporarily
                 const downloadBtn = document.getElementById('downloadBtn');
                 downloadBtn.style.display = 'none';
                 
                 const { jsPDF } = window.jspdf;
                 const pdf = new jsPDF('p', 'mm', 'a4');
                 
-                // Get the dashboard element
-                const element = document.getElementById('dashboard');
+                // Calculate totals for the report
+                const totals = campaignData.reduce((acc, campaign) => ({
+                    totalLeads: acc.totalLeads + campaign.leads,
+                    totalReach: acc.totalReach + campaign.reach,
+                    totalSpend: acc.totalSpend + campaign.spend,
+                    totalClicks: acc.totalClicks + campaign.linkClicks,
+                    totalImpressions: acc.totalImpressions + campaign.impressions,
+                    totalCTR: acc.totalCTR + campaign.ctr,
+                    activeCampaigns: acc.activeCampaigns + (campaign.leads > 0 ? 1 : 0)
+                }), { totalLeads: 0, totalReach: 0, totalSpend: 0, totalClicks: 0, totalImpressions: 0, totalCTR: 0, activeCampaigns: 0 });
+
+                const avgCPL = totals.totalLeads > 0 ? totals.totalSpend / totals.totalLeads : 0;
+                const avgCTR = totals.activeCampaigns > 0 ? totals.totalCTR / totals.activeCampaigns : 0;
                 
-                // Use html2canvas to capture the content
-                const canvas = await html2canvas(element, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#f8fafc'
+                // Set up fonts and colors
+                pdf.setFont('helvetica');
+                
+                // Header
+                pdf.setFontSize(28);
+                pdf.setTextColor(102, 126, 234);
+                pdf.text('Campaign Performance Report', 20, 30);
+                
+                pdf.setFontSize(14);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text('Marketing Analytics Overview', 20, 40);
+                
+                const dateRange = document.getElementById('dateRange').textContent;
+                pdf.setFontSize(12);
+                pdf.text(dateRange, 20, 50);
+                
+                // Performance Summary
+                pdf.setFontSize(18);
+                pdf.setTextColor(16, 185, 129);
+                pdf.text('Campaign Performance', 20, 70);
+                
+                pdf.setFontSize(12);
+                pdf.setTextColor(60, 60, 60);
+                const summaryText = document.getElementById('summaryText').textContent;
+                const splitSummary = pdf.splitTextToSize(summaryText, 170);
+                pdf.text(splitSummary, 20, 80);
+                
+                // Key Metrics Section
+                pdf.setFontSize(16);
+                pdf.setTextColor(50, 50, 50);
+                pdf.text('Key Performance Metrics', 20, 110);
+                
+                // Create metrics in two columns
+                const metrics = [
+                    { label: 'Leads Generated', value: totals.totalLeads.toString(), color: [16, 185, 129] },
+                    { label: 'People Reached', value: totals.totalReach.toLocaleString(), color: [59, 130, 246] },
+                    { label: 'Link Clicks', value: totals.totalClicks.toString(), color: [139, 92, 246] },
+                    { label: 'Cost Per Lead', value: `$${avgCPL.toFixed(2)}`, color: [245, 158, 11] },
+                    { label: 'Total Investment', value: `$${totals.totalSpend.toFixed(2)}`, color: [239, 68, 68] },
+                    { label: 'Click-Through Rate', value: `${avgCTR.toFixed(2)}%`, color: [6, 214, 160] }
+                ];
+                
+                let yPos = 125;
+                metrics.forEach((metric, index) => {
+                    const xPos = index % 2 === 0 ? 20 : 110;
+                    if (index % 2 === 0 && index > 0) yPos += 25;
+                    
+                    // Draw metric box background
+                    pdf.setFillColor(248, 250, 252);
+                    pdf.rect(xPos, yPos - 5, 80, 20, 'F');
+                    
+                    // Metric value
+                    pdf.setFontSize(20);
+                    pdf.setTextColor(metric.color[0], metric.color[1], metric.color[2]);
+                    pdf.text(metric.value, xPos + 5, yPos + 5);
+                    
+                    // Metric label
+                    pdf.setFontSize(10);
+                    pdf.setTextColor(100, 100, 100);
+                    pdf.text(metric.label, xPos + 5, yPos + 12);
                 });
                 
-                const imgData = canvas.toDataURL('image/png');
+                // Top Performing Campaigns
+                yPos += 40;
+                pdf.setFontSize(16);
+                pdf.setTextColor(50, 50, 50);
+                pdf.text('Top Performing Campaigns', 20, yPos);
                 
-                // Calculate dimensions
-                const imgWidth = 210; // A4 width in mm
-                const pageHeight = 297; // A4 height in mm
-                const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                let heightLeft = imgHeight;
+                const topCampaigns = [...campaignData]
+                    .filter(c => c.leads > 0)
+                    .sort((a, b) => b.leads - a.leads)
+                    .slice(0, 5);
                 
-                let position = 0;
+                yPos += 15;
+                pdf.setFontSize(10);
+                pdf.setTextColor(80, 80, 80);
                 
-                // Add first page
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+                // Table headers
+                pdf.text('Campaign Name', 20, yPos);
+                pdf.text('Leads', 120, yPos);
+                pdf.text('Spend', 140, yPos);
+                pdf.text('CPL', 165, yPos);
+                pdf.text('Reach', 180, yPos);
                 
-                // Add additional pages if needed
-                while (heightLeft >= 0) {
-                    position = heightLeft - imgHeight;
-                    pdf.addPage();
-                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                    heightLeft -= pageHeight;
-                }
+                yPos += 5;
+                topCampaigns.forEach((campaign, index) => {
+                    yPos += 10;
+                    
+                    // Alternate row background
+                    if (index % 2 === 0) {
+                        pdf.setFillColor(248, 250, 252);
+                        pdf.rect(20, yPos - 7, 170, 8, 'F');
+                    }
+                    
+                    pdf.setTextColor(60, 60, 60);
+                    
+                    // Campaign name (truncated)
+                    const truncatedName = campaign.adName.length > 25 
+                        ? campaign.adName.substring(0, 25) + '...' 
+                        : campaign.adName;
+                    pdf.text(truncatedName, 20, yPos);
+                    
+                    // Metrics
+                    pdf.text(campaign.leads.toString(), 120, yPos);
+                    pdf.text(`$${campaign.spend.toFixed(0)}`, 140, yPos);
+                    pdf.text(`$${(campaign.spend / campaign.leads).toFixed(2)}`, 165, yPos);
+                    pdf.text(campaign.reach.toLocaleString(), 180, yPos);
+                });
+                
+                // Performance Insights (New Page)
+                pdf.addPage();
+                
+                pdf.setFontSize(20);
+                pdf.setTextColor(102, 126, 234);
+                pdf.text('Performance Insights & Recommendations', 20, 30);
+                
+                const bestPerformer = campaignData.reduce((best, current) => 
+                    current.leads > best.leads ? current : best
+                );
+                
+                const mostEfficient = campaignData
+                    .filter(c => c.leads > 0)
+                    .reduce((best, current) => 
+                        (current.spend / current.leads) < (best.spend / best.leads) ? current : best
+                    );
+                
+                const insights = [
+                    {
+                        title: 'Lead Generation Performance',
+                        content: `Successfully generated ${totals.totalLeads} qualified leads through strategic advertising campaigns. This demonstrates strong market response and effective targeting.`
+                    },
+                    {
+                        title: 'Audience Engagement',
+                        content: `Reached ${totals.totalReach.toLocaleString()} potential customers with ${totals.totalClicks} link clicks, achieving an average CTR of ${avgCTR.toFixed(2)}%.`
+                    },
+                    {
+                        title: 'Top Performing Campaign',
+                        content: `"${bestPerformer.adName.length > 50 ? bestPerformer.adName.substring(0, 50) + '...' : bestPerformer.adName}" delivered the highest results with ${bestPerformer.leads} leads and $${bestPerformer.spend.toFixed(2)} spend.`
+                    },
+                    {
+                        title: 'Most Cost-Effective Campaign',
+                        content: `"${mostEfficient.adName.length > 50 ? mostEfficient.adName.substring(0, 50) + '...' : mostEfficient.adName}" achieved the lowest cost per lead at $${(mostEfficient.spend/mostEfficient.leads).toFixed(2)}.`
+                    },
+                    {
+                        title: 'Overall Campaign Efficiency',
+                        content: `Average cost per lead of $${avgCPL.toFixed(2)} with consistent performance across ${campaignData.length} active campaigns.`
+                    },
+                    {
+                        title: 'Strategic Recommendations',
+                        content: `1. Scale high-performing campaigns like "${bestPerformer.adName.substring(0, 30)}..." 2. Optimize underperforming ads for better ROI 3. Test similar audiences to top performers 4. Increase budget allocation to efficient campaigns`
+                    }
+                ];
+                
+                yPos = 50;
+                insights.forEach((insight, index) => {
+                    if (yPos > 250) {
+                        pdf.addPage();
+                        yPos = 30;
+                    }
+                    
+                    // Title
+                    pdf.setFontSize(14);
+                    pdf.setTextColor(16, 185, 129);
+                    pdf.text(insight.title, 20, yPos);
+                    
+                    // Content
+                    yPos += 8;
+                    pdf.setFontSize(11);
+                    pdf.setTextColor(60, 60, 60);
+                    const splitContent = pdf.splitTextToSize(insight.content, 170);
+                    pdf.text(splitContent, 20, yPos);
+                    
+                    yPos += (splitContent.length * 5) + 15;
+                });
+                
+                // Campaign Details Table (New Page)
+                pdf.addPage();
+                pdf.setFontSize(18);
+                pdf.setTextColor(102, 126, 234);
+                pdf.text('Detailed Campaign Performance', 20, 30);
+                
+                yPos = 50;
+                pdf.setFontSize(9);
+                pdf.setTextColor(80, 80, 80);
+                
+                // Table headers
+                pdf.text('Campaign', 20, yPos);
+                pdf.text('Leads', 80, yPos);
+                pdf.text('Spend', 100, yPos);
+                pdf.text('Reach', 120, yPos);
+                pdf.text('Clicks', 140, yPos);
+                pdf.text('CTR', 160, yPos);
+                pdf.text('CPL', 175, yPos);
+                
+                yPos += 5;
+                campaignData.forEach((campaign, index) => {
+                    if (yPos > 270) {
+                        pdf.addPage();
+                        yPos = 30;
+                        
+                        // Repeat headers
+                        pdf.setFontSize(9);
+                        pdf.setTextColor(80, 80, 80);
+                        pdf.text('Campaign', 20, yPos);
+                        pdf.text('Leads', 80, yPos);
+                        pdf.text('Spend', 100, yPos);
+                        pdf.text('Reach', 120, yPos);
+                        pdf.text('Clicks', 140, yPos);
+                        pdf.text('CTR', 160, yPos);
+                        pdf.text('CPL', 175, yPos);
+                        yPos += 5;
+                    }
+                    
+                    yPos += 8;
+                    
+                    // Alternate row background
+                    if (index % 2 === 0) {
+                        pdf.setFillColor(248, 250, 252);
+                        pdf.rect(20, yPos - 5, 170, 7, 'F');
+                    }
+                    
+                    pdf.setTextColor(60, 60, 60);
+                    
+                    // Campaign data
+                    const name = campaign.adName.length > 20 ? campaign.adName.substring(0, 20) + '...' : campaign.adName;
+                    pdf.text(name, 20, yPos);
+                    pdf.text(campaign.leads.toString(), 80, yPos);
+                    pdf.text(`$${campaign.spend.toFixed(0)}`, 100, yPos);
+                    pdf.text(campaign.reach.toLocaleString(), 120, yPos);
+                    pdf.text(campaign.linkClicks.toString(), 140, yPos);
+                    pdf.text(`${campaign.ctr.toFixed(1)}%`, 160, yPos);
+                    
+                    const cpl = campaign.leads > 0 ? (campaign.spend / campaign.leads).toFixed(2) : 'N/A';
+                    pdf.text(`${cpl}`, 175, yPos);
+                });
                 
                 // Save the PDF
                 pdf.save('campaign-performance-report.pdf');
-                
-                // Show the download button again
                 downloadBtn.style.display = 'block';
                 
             } catch (error) {
@@ -583,7 +797,7 @@
                                     const campaign = topCampaigns[index];
                                     return [
                                         `Leads: ${campaign.leads}`,
-                                        `Spend: $${campaign.spend.toFixed(2)}`,
+                                        `Spend: ${campaign.spend.toFixed(2)}`,
                                         `Reach: ${campaign.reach.toLocaleString()}`
                                     ];
                                 }
@@ -649,7 +863,7 @@
                                 label: function(context) {
                                     const point = context.raw;
                                     return [
-                                        `Spend: $${point.x.toFixed(2)}`,
+                                        `Spend: ${point.x.toFixed(2)}`,
                                         `Reach: ${point.y.toLocaleString()}`,
                                         `Leads: ${point.leads}`
                                     ];
@@ -699,11 +913,11 @@
                 
                 `<strong>Audience Reach:</strong> Successfully reached ${totalReach.toLocaleString()} potential customers with relevant messaging.`,
                 
-                `<strong>Top Performer:</strong> "${bestPerformer.adName}" delivered ${bestPerformer.leads} leads with $${bestPerformer.spend.toFixed(2)} spend.`,
+                `<strong>Top Performer:</strong> "${bestPerformer.adName}" delivered ${bestPerformer.leads} leads with ${bestPerformer.spend.toFixed(2)} spend.`,
                 
-                `<strong>Most Efficient:</strong> "${mostEfficient.adName}" achieved the lowest cost per lead at $${(mostEfficient.spend/mostEfficient.leads).toFixed(2)}.`,
+                `<strong>Most Efficient:</strong> "${mostEfficient.adName}" achieved the lowest cost per lead at ${(mostEfficient.spend/mostEfficient.leads).toFixed(2)}.`,
                 
-                `<strong>Overall Efficiency:</strong> Average cost per lead of $${(totalSpend/totalLeads).toFixed(2)} with ${avgCTR.toFixed(2)}% click-through rate.`,
+                `<strong>Overall Efficiency:</strong> Average cost per lead of ${(totalSpend/totalLeads).toFixed(2)} with ${avgCTR.toFixed(2)}% click-through rate.`,
                 
                 `<strong>Recommendations:</strong> Scale successful campaigns like "${bestPerformer.adName}" and optimize underperforming ads for better ROI.`
             ];
