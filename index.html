@@ -6,6 +6,7 @@
     <title>Client Performance Report</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -35,6 +36,28 @@
             padding: 40px;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .download-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: #475569;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: none;
+        }
+        
+        .download-btn:hover {
+            background: #e2e8f0;
+            color: #334155;
         }
         
         .header h1 {
@@ -295,8 +318,9 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📈 Campaign Performance Report</h1>
-            <p>Professional Marketing Analytics Dashboard</p>
+            <button class="download-btn" id="downloadBtn" onclick="downloadPDF()">Download Report</button>
+            <h1>Campaign Performance Report</h1>
+            <p>Marketing Analytics Overview</p>
             <div class="date-range" id="dateRange">Select Campaign Data</div>
         </div>
         
@@ -316,8 +340,8 @@
         
         <div id="dashboard" class="hidden">
             <div class="performance-summary">
-                <h2>🎯 Outstanding Campaign Performance</h2>
-                <p id="summaryText">Your campaigns are delivering exceptional results with strong engagement and efficient lead generation.</p>
+                <h2>Campaign Performance</h2>
+                <p id="summaryText">Your campaigns are delivering strong results with effective audience engagement.</p>
             </div>
             
             <div class="metrics">
@@ -325,23 +349,23 @@
                     <div class="metric-value" id="totalLeads">0</div>
                     <div class="metric-label">Quality Leads Generated</div>
                     <div class="metric-improvement">
-                        📈 High-intent prospects captured
+                        Quality prospects captured
                     </div>
                 </div>
                 
                 <div class="metric-card reach">
                     <div class="metric-value" id="totalReach">0</div>
-                    <div class="metric-label">Unique People Reached</div>
+                    <div class="metric-label">People Reached</div>
                     <div class="metric-improvement">
-                        🎯 Excellent audience penetration
+                        Strong audience penetration
                     </div>
                 </div>
                 
                 <div class="metric-card engagement">
                     <div class="metric-value" id="totalClicks">0</div>
-                    <div class="metric-label">Engaged Clicks Generated</div>
+                    <div class="metric-label">Link Clicks</div>
                     <div class="metric-improvement">
-                        💡 Strong audience interest
+                        Active audience interest
                     </div>
                 </div>
                 
@@ -349,15 +373,15 @@
                     <div class="metric-value" id="avgCPL">£0.00</div>
                     <div class="metric-label">Cost Per Lead</div>
                     <div class="metric-improvement">
-                        💰 Competitive acquisition cost
+                        Efficient acquisition
                     </div>
                 </div>
                 
                 <div class="metric-card performance">
                     <div class="metric-value" id="totalInvestment">£0.00</div>
-                    <div class="metric-label">Marketing Investment</div>
+                    <div class="metric-label">Total Investment</div>
                     <div class="metric-improvement">
-                        🚀 Strategic budget allocation
+                        Budget allocation
                     </div>
                 </div>
                 
@@ -365,24 +389,24 @@
                     <div class="metric-value" id="avgCTR">0.0%</div>
                     <div class="metric-label">Click-Through Rate</div>
                     <div class="metric-improvement">
-                        ⭐ Above industry average
+                        Good performance
                     </div>
                 </div>
             </div>
             
             <div class="charts">
                 <div class="chart-container">
-                    <div class="chart-title">🏆 Top Performing Campaigns</div>
+                    <div class="chart-title">Top Performing Campaigns</div>
                     <canvas id="leadsChart"></canvas>
                 </div>
                 <div class="chart-container">
-                    <div class="chart-title">📊 Reach vs Engagement Efficiency</div>
+                    <div class="chart-title">Reach vs Engagement Performance</div>
                     <canvas id="efficiencyChart"></canvas>
                 </div>
             </div>
             
             <div class="insights-section">
-                <div class="insights-title">🔍 Key Performance Insights</div>
+                <div class="insights-title">Performance Summary</div>
                 <div id="insightsContainer">
                     <!-- Insights will be generated dynamically -->
                 </div>
@@ -448,6 +472,7 @@
 
         function showDashboard() {
             document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('downloadBtn').style.display = 'block';
             updateMetrics();
             createCharts();
             generateInsights();
@@ -478,7 +503,20 @@
             // Update summary with positive language
             const leadRate = (totals.totalLeads / totals.totalClicks * 100).toFixed(1);
             document.getElementById('summaryText').textContent = 
-                `Excellent performance with ${totals.totalLeads} quality leads generated from ${totals.totalReach.toLocaleString()} people reached. Strong ${leadRate}% conversion rate from clicks to leads.`;
+                `Generated ${totals.totalLeads} leads from ${totals.totalReach.toLocaleString()} people reached with a ${leadRate}% conversion rate from clicks to leads.`;
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('dashboard');
+            const opt = {
+                margin: 0.5,
+                filename: 'campaign-performance-report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            
+            html2pdf().set(opt).from(element).save();
         }
 
         function createCharts() {
@@ -594,17 +632,17 @@
             );
             
             const insights = [
-                `🎯 <strong>Lead Generation Excellence:</strong> Generated ${totalLeads} high-quality leads from targeted advertising efforts, demonstrating strong market appeal.`,
+                `<strong>Lead Generation:</strong> Generated ${totalLeads} leads from targeted advertising, showing good market response.`,
                 
-                `📈 <strong>Audience Engagement Success:</strong> Reached ${totalReach.toLocaleString()} unique potential customers with compelling messaging that resonated with the target demographic.`,
+                `<strong>Audience Reach:</strong> Successfully reached ${totalReach.toLocaleString()} potential customers with relevant messaging.`,
                 
-                `💡 <strong>Campaign Optimization:</strong> "${bestPerformer.adName}" emerged as the top performer with ${bestPerformer.leads} leads, showing the effectiveness of our creative approach.`,
+                `<strong>Top Performer:</strong> "${bestPerformer.adName}" delivered ${bestPerformer.leads} leads, demonstrating effective creative approach.`,
                 
-                `⭐ <strong>Cost Efficiency:</strong> Achieved competitive cost-per-lead of $${(totalSpend/totalLeads).toFixed(2)}, demonstrating strategic budget management and optimal targeting.`,
+                `<strong>Cost Management:</strong> Maintained cost-per-lead of ${(totalSpend/totalLeads).toFixed(2)} through strategic targeting.`,
                 
-                `🚀 <strong>Engagement Quality:</strong> Average click-through rate of ${avgCTR.toFixed(2)}% indicates strong audience relevance and compelling creative execution.`,
+                `<strong>Engagement Rate:</strong> Achieved ${avgCTR.toFixed(2)}% click-through rate indicating good audience relevance.`,
                 
-                `📊 <strong>Strategic Recommendations:</strong> Continue scaling successful campaign elements and optimize targeting based on high-performing audience segments identified.`
+                `<strong>Recommendations:</strong> Continue optimizing high-performing campaigns and refine targeting based on successful segments.`
             ];
 
             container.innerHTML = insights.map(insight => 
