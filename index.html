@@ -6,7 +6,8 @@
     <title>Client Performance Report</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         
@@ -43,21 +44,21 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            padding: 10px 20px;
+            background: #10b981;
+            border: none;
+            padding: 12px 24px;
             border-radius: 8px;
-            color: #475569;
+            color: white;
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
             display: none;
         }
         
         .download-btn:hover {
-            background: #e2e8f0;
-            color: #334155;
+            background: #059669;
+            transform: translateY(-1px);
         }
         
         .header h1 {
@@ -228,20 +229,9 @@
         }
         
         .metric-label {
-            font-size: 1rem;
+            font-size: 1.1rem;
             color: #666;
             font-weight: 600;
-            margin-bottom: 8px;
-        }
-        
-        .metric-improvement {
-            font-size: 0.9rem;
-            color: #10b981;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 5px;
         }
         
         .charts {
@@ -318,7 +308,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <button class="download-btn" id="downloadBtn" onclick="downloadPDF()">Download Report</button>
+            <button class="download-btn" id="downloadBtn" onclick="downloadPDF()">📄 Download PDF</button>
             <h1>Campaign Performance Report</h1>
             <p>Marketing Analytics Overview</p>
             <div class="date-range" id="dateRange">Select Campaign Data</div>
@@ -347,61 +337,43 @@
             <div class="metrics">
                 <div class="metric-card leads">
                     <div class="metric-value" id="totalLeads">0</div>
-                    <div class="metric-label">Quality Leads Generated</div>
-                    <div class="metric-improvement">
-                        Quality prospects captured
-                    </div>
+                    <div class="metric-label">Leads Generated</div>
                 </div>
                 
                 <div class="metric-card reach">
                     <div class="metric-value" id="totalReach">0</div>
                     <div class="metric-label">People Reached</div>
-                    <div class="metric-improvement">
-                        Strong audience penetration
-                    </div>
                 </div>
                 
                 <div class="metric-card engagement">
                     <div class="metric-value" id="totalClicks">0</div>
                     <div class="metric-label">Link Clicks</div>
-                    <div class="metric-improvement">
-                        Active audience interest
-                    </div>
                 </div>
                 
                 <div class="metric-card efficiency">
-                    <div class="metric-value" id="avgCPL">£0.00</div>
+                    <div class="metric-value" id="avgCPL">$0.00</div>
                     <div class="metric-label">Cost Per Lead</div>
-                    <div class="metric-improvement">
-                        Efficient acquisition
-                    </div>
                 </div>
                 
                 <div class="metric-card performance">
-                    <div class="metric-value" id="totalInvestment">£0.00</div>
+                    <div class="metric-value" id="totalInvestment">$0.00</div>
                     <div class="metric-label">Total Investment</div>
-                    <div class="metric-improvement">
-                        Budget allocation
-                    </div>
                 </div>
                 
                 <div class="metric-card quality">
                     <div class="metric-value" id="avgCTR">0.0%</div>
                     <div class="metric-label">Click-Through Rate</div>
-                    <div class="metric-improvement">
-                        Good performance
-                    </div>
                 </div>
             </div>
             
             <div class="charts">
                 <div class="chart-container">
-                    <div class="chart-title">Top Performing Campaigns</div>
+                    <div class="chart-title">Ad Performance by Leads</div>
                     <canvas id="leadsChart"></canvas>
                 </div>
                 <div class="chart-container">
-                    <div class="chart-title">Reach vs Engagement Performance</div>
-                    <canvas id="efficiencyChart"></canvas>
+                    <div class="chart-title">Spend vs Reach Analysis</div>
+                    <canvas id="spendReachChart"></canvas>
                 </div>
             </div>
             
@@ -492,7 +464,7 @@
             const avgCPL = totals.totalLeads > 0 ? totals.totalSpend / totals.totalLeads : 0;
             const avgCTR = totals.activeCampaigns > 0 ? totals.totalCTR / totals.activeCampaigns : 0;
 
-            // Update metrics with positive framing
+            // Update metrics
             document.getElementById('totalLeads').textContent = totals.totalLeads;
             document.getElementById('totalReach').textContent = totals.totalReach.toLocaleString();
             document.getElementById('totalClicks').textContent = totals.totalClicks;
@@ -500,102 +472,187 @@
             document.getElementById('totalInvestment').textContent = `$${totals.totalSpend.toFixed(2)}`;
             document.getElementById('avgCTR').textContent = `${avgCTR.toFixed(2)}%`;
             
-            // Update summary with positive language
+            // Update summary
             const leadRate = (totals.totalLeads / totals.totalClicks * 100).toFixed(1);
             document.getElementById('summaryText').textContent = 
                 `Generated ${totals.totalLeads} leads from ${totals.totalReach.toLocaleString()} people reached with a ${leadRate}% conversion rate from clicks to leads.`;
         }
 
-        function downloadPDF() {
-            const element = document.getElementById('dashboard');
-            const opt = {
-                margin: 0.5,
-                filename: 'campaign-performance-report.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2 },
-                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
-            };
-            
-            html2pdf().set(opt).from(element).save();
+        async function downloadPDF() {
+            try {
+                // Hide the download button temporarily
+                const downloadBtn = document.getElementById('downloadBtn');
+                downloadBtn.style.display = 'none';
+                
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                // Get the dashboard element
+                const element = document.getElementById('dashboard');
+                
+                // Use html2canvas to capture the content
+                const canvas = await html2canvas(element, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#f8fafc'
+                });
+                
+                const imgData = canvas.toDataURL('image/png');
+                
+                // Calculate dimensions
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 297; // A4 height in mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                
+                let position = 0;
+                
+                // Add first page
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+                
+                // Add additional pages if needed
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                
+                // Save the PDF
+                pdf.save('campaign-performance-report.pdf');
+                
+                // Show the download button again
+                downloadBtn.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF. Please try again.');
+                document.getElementById('downloadBtn').style.display = 'block';
+            }
         }
 
         function createCharts() {
-            // Top performing campaigns by leads
-            const topCampaigns = [...campaignData]
-                .filter(c => c.leads > 0)
+            // Filter campaigns with data
+            const validCampaigns = campaignData.filter(c => c.leads > 0 || c.spend > 0);
+            
+            // Take top 8 campaigns for better visibility
+            const topCampaigns = [...validCampaigns]
                 .sort((a, b) => b.leads - a.leads)
-                .slice(0, 5);
+                .slice(0, 8);
 
             Chart.defaults.color = '#666';
             Chart.defaults.borderColor = '#e5e7eb';
 
-            // Leads Chart
+            // 1. Simple Bar Chart for Ad Performance by Leads
             const leadsCtx = document.getElementById('leadsChart').getContext('2d');
             if (charts.leads) charts.leads.destroy();
             
             charts.leads = new Chart(leadsCtx, {
-                type: 'doughnut',
+                type: 'bar',
                 data: {
-                    labels: topCampaigns.map(c => c.adName.substring(0, 15) + '...'),
+                    labels: topCampaigns.map(c => {
+                        const name = c.adName.length > 20 ? c.adName.substring(0, 20) + '...' : c.adName;
+                        return name;
+                    }),
                     datasets: [{
+                        label: 'Leads Generated',
                         data: topCampaigns.map(c => c.leads),
-                        backgroundColor: [
-                            '#10b981',
-                            '#3b82f6',
-                            '#8b5cf6',
-                            '#f59e0b',
-                            '#ef4444'
-                        ],
-                        borderWidth: 0
+                        backgroundColor: '#10b981',
+                        borderColor: '#059669',
+                        borderWidth: 2,
+                        borderRadius: 8,
+                        borderSkipped: false,
                     }]
                 },
                 options: {
                     responsive: true,
                     plugins: {
                         legend: {
-                            position: 'bottom',
-                            labels: {
-                                padding: 20,
-                                usePointStyle: true
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(context) {
+                                    const index = context[0].dataIndex;
+                                    return topCampaigns[index].adName;
+                                },
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const campaign = topCampaigns[index];
+                                    return [
+                                        `Leads: ${campaign.leads}`,
+                                        `Spend: $${campaign.spend.toFixed(2)}`,
+                                        `Reach: ${campaign.reach.toLocaleString()}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Leads'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
                             }
                         }
                     }
                 }
             });
 
-            // Efficiency Chart (Reach vs Engagement)
-            const efficiencyCtx = document.getElementById('efficiencyChart').getContext('2d');
-            if (charts.efficiency) charts.efficiency.destroy();
+            // 2. Scatter plot for Spend vs Reach
+            const spendReachCtx = document.getElementById('spendReachChart').getContext('2d');
+            if (charts.spendReach) charts.spendReach.destroy();
             
-            const efficiencyData = campaignData
-                .filter(c => c.reach > 0 && c.linkClicks > 0)
-                .map(c => ({
-                    x: c.reach,
-                    y: c.linkClicks,
-                    r: Math.max(5, c.leads * 2),
-                    label: c.adName.substring(0, 12) + '...'
-                }));
+            const spendReachData = validCampaigns.map((c, index) => ({
+                x: c.spend,
+                y: c.reach,
+                backgroundColor: c.leads > 0 ? '#10b981' : '#94a3b8',
+                borderColor: c.leads > 0 ? '#059669' : '#64748b',
+                campaignName: c.adName,
+                leads: c.leads
+            }));
 
-            charts.efficiency = new Chart(efficiencyCtx, {
-                type: 'bubble',
+            charts.spendReach = new Chart(spendReachCtx, {
+                type: 'scatter',
                 data: {
                     datasets: [{
                         label: 'Campaign Performance',
-                        data: efficiencyData,
-                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
-                        borderColor: '#10b981',
-                        borderWidth: 2
+                        data: spendReachData,
+                        backgroundColor: spendReachData.map(d => d.backgroundColor),
+                        borderColor: spendReachData.map(d => d.borderColor),
+                        borderWidth: 2,
+                        pointRadius: 8,
+                        pointHoverRadius: 10
                     }]
                 },
                 options: {
                     responsive: true,
                     plugins: {
-                        legend: { display: false },
+                        legend: {
+                            display: false
+                        },
                         tooltip: {
                             callbacks: {
+                                title: function(context) {
+                                    const point = context[0].raw;
+                                    return point.campaignName;
+                                },
                                 label: function(context) {
                                     const point = context.raw;
-                                    return `${point.label}: ${point.x.toLocaleString()} reach, ${point.y} clicks`;
+                                    return [
+                                        `Spend: $${point.x.toFixed(2)}`,
+                                        `Reach: ${point.y.toLocaleString()}`,
+                                        `Leads: ${point.leads}`
+                                    ];
                                 }
                             }
                         }
@@ -605,14 +662,14 @@
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: 'People Reached'
+                                text: 'Amount Spent ($)'
                             }
                         },
                         y: {
                             beginAtZero: true,
                             title: {
                                 display: true,
-                                text: 'Link Clicks Generated'
+                                text: 'People Reached'
                             }
                         }
                     }
@@ -631,18 +688,24 @@
                 current.leads > best.leads ? current : best
             );
             
+            const mostEfficient = campaignData
+                .filter(c => c.leads > 0)
+                .reduce((best, current) => 
+                    (current.spend / current.leads) < (best.spend / best.leads) ? current : best
+                );
+            
             const insights = [
                 `<strong>Lead Generation:</strong> Generated ${totalLeads} leads from targeted advertising, showing good market response.`,
                 
                 `<strong>Audience Reach:</strong> Successfully reached ${totalReach.toLocaleString()} potential customers with relevant messaging.`,
                 
-                `<strong>Top Performer:</strong> "${bestPerformer.adName}" delivered ${bestPerformer.leads} leads, demonstrating effective creative approach.`,
+                `<strong>Top Performer:</strong> "${bestPerformer.adName}" delivered ${bestPerformer.leads} leads with $${bestPerformer.spend.toFixed(2)} spend.`,
                 
-                `<strong>Cost Management:</strong> Maintained cost-per-lead of ${(totalSpend/totalLeads).toFixed(2)} through strategic targeting.`,
+                `<strong>Most Efficient:</strong> "${mostEfficient.adName}" achieved the lowest cost per lead at $${(mostEfficient.spend/mostEfficient.leads).toFixed(2)}.`,
                 
-                `<strong>Engagement Rate:</strong> Achieved ${avgCTR.toFixed(2)}% click-through rate indicating good audience relevance.`,
+                `<strong>Overall Efficiency:</strong> Average cost per lead of $${(totalSpend/totalLeads).toFixed(2)} with ${avgCTR.toFixed(2)}% click-through rate.`,
                 
-                `<strong>Recommendations:</strong> Continue optimizing high-performing campaigns and refine targeting based on successful segments.`
+                `<strong>Recommendations:</strong> Scale successful campaigns like "${bestPerformer.adName}" and optimize underperforming ads for better ROI.`
             ];
 
             container.innerHTML = insights.map(insight => 
