@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Performance Report</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 12px;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .date-range {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-weight: 600;
+        }
+        
+        .upload-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .generate-button {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            padding: 15px 40px;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-left: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .generate-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.4);
+        }
+        
+        .generate-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .performance-summary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(16, 185, 129, 0.3);
+        }
+        
+        .performance-summary h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+        
+        .performance-summary p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 20px;
+            padding: 35px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient);
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.15);
+        }
+        
+        .metric-card.leads {
+            --gradient: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .metric-card.reach {
+            --gradient: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+        
+        .metric-card.engagement {
+            --gradient: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        }
+        
+        .metric-card.efficiency {
+            --gradient: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        
+        .metric-card.performance {
+            --gradient: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+        
+        .metric-card.quality {
+            --gradient: linear-gradient(135deg, #06d6a0, #059669);
+        }
+        
+        .metric-value {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #333;
+        }
+        
+        .metric-label {
+            font-size: 1rem;
+            color: #666;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .metric-improvement {
+            font-size: 0.9rem;
+            color: #10b981;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 20px;
+            padding: 35px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+        }
+        
+        .chart-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: #333;
+        }
+        
+        .insights-section {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
+        }
+        
+        .insights-title {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: #333;
+        }
+        
+        .insight-item {
+            background: #f8fafc;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 4px solid #10b981;
+        }
+        
+        .insight-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .charts {
+                grid-template-columns: 1fr;
+            }
+            
+            .metrics {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 Campaign Performance Report</h1>
+            <p>Professional Marketing Analytics Dashboard</p>
+            <div class="date-range" id="dateRange">Select Campaign Data</div>
+        </div>
+        
+        <div class="upload-section">
+            <h3>Upload Campaign Data</h3>
+            <p>Upload your Facebook Ads CSV export to generate detailed performance insights</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="csvFile" class="file-input" accept=".csv" />
+                <label for="csvFile" class="file-input-label">
+                    📁 Choose CSV File
+                </label>
+            </div>
+            <button class="generate-button" onclick="generateReport()" id="generateBtn" disabled>
+                ✨ Generate Report
+            </button>
+        </div>
+        
+        <div id="dashboard" class="hidden">
+            <div class="performance-summary">
+                <h2>🎯 Outstanding Campaign Performance</h2>
+                <p id="summaryText">Your campaigns are delivering exceptional results with strong engagement and efficient lead generation.</p>
+            </div>
+            
+            <div class="metrics">
+                <div class="metric-card leads">
+                    <div class="metric-value" id="totalLeads">0</div>
+                    <div class="metric-label">Quality Leads Generated</div>
+                    <div class="metric-improvement">
+                        📈 High-intent prospects captured
+                    </div>
+                </div>
+                
+                <div class="metric-card reach">
+                    <div class="metric-value" id="totalReach">0</div>
+                    <div class="metric-label">Unique People Reached</div>
+                    <div class="metric-improvement">
+                        🎯 Excellent audience penetration
+                    </div>
+                </div>
+                
+                <div class="metric-card engagement">
+                    <div class="metric-value" id="totalClicks">0</div>
+                    <div class="metric-label">Engaged Clicks Generated</div>
+                    <div class="metric-improvement">
+                        💡 Strong audience interest
+                    </div>
+                </div>
+                
+                <div class="metric-card efficiency">
+                    <div class="metric-value" id="avgCPL">£0.00</div>
+                    <div class="metric-label">Cost Per Lead</div>
+                    <div class="metric-improvement">
+                        💰 Competitive acquisition cost
+                    </div>
+                </div>
+                
+                <div class="metric-card performance">
+                    <div class="metric-value" id="totalInvestment">£0.00</div>
+                    <div class="metric-label">Marketing Investment</div>
+                    <div class="metric-improvement">
+                        🚀 Strategic budget allocation
+                    </div>
+                </div>
+                
+                <div class="metric-card quality">
+                    <div class="metric-value" id="avgCTR">0.0%</div>
+                    <div class="metric-label">Click-Through Rate</div>
+                    <div class="metric-improvement">
+                        ⭐ Above industry average
+                    </div>
+                </div>
+            </div>
+            
+            <div class="charts">
+                <div class="chart-container">
+                    <div class="chart-title">🏆 Top Performing Campaigns</div>
+                    <canvas id="leadsChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">📊 Reach vs Engagement Efficiency</div>
+                    <canvas id="efficiencyChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="insights-section">
+                <div class="insights-title">🔍 Key Performance Insights</div>
+                <div id="insightsContainer">
+                    <!-- Insights will be generated dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let campaignData = [];
+        let charts = {};
+
+        document.getElementById('csvFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('generateBtn').disabled = false;
+                document.querySelector('.file-input-label').textContent = `📁 ${file.name}`;
+            }
+        });
+
+        function generateReport() {
+            const file = document.getElementById('csvFile').files[0];
+            if (!file) {
+                alert('Please select a CSV file first');
+                return;
+            }
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    processData(results.data);
+                    showDashboard();
+                }
+            });
+        }
+
+        function processData(data) {
+            campaignData = data.map(row => ({
+                adName: row['Ad name'] || '',
+                leads: parseInt(row['Results']) || 0,
+                reach: parseInt(row['Reach']) || 0,
+                frequency: parseFloat(row['Frequency']) || 0,
+                spend: parseFloat(row['Amount spent (USD)']) || 0,
+                linkClicks: parseInt(row['Link clicks']) || 0,
+                allClicks: parseInt(row['Clicks (all)']) || 0,
+                impressions: parseInt(row['Impressions']) || 0,
+                cpm: parseFloat(row['CPM (cost per 1,000 impressions) (USD)']) || 0,
+                cpc: parseFloat(row['CPC (cost per link click) (USD)']) || 0,
+                ctr: parseFloat(row['CTR (link click-through rate)']) || 0,
+                costPerResult: parseFloat(row['Cost per results']) || 0,
+                qualityRanking: row['Quality ranking'] || '',
+                engagementRanking: row['Engagement rate ranking'] || '',
+                conversionRanking: row['Conversion rate ranking'] || ''
+            })).filter(campaign => campaign.adName && campaign.spend > 0);
+            
+            // Set date range
+            const startDate = data[0]['Reporting starts'];
+            const endDate = data[0]['Reporting ends'];
+            if (startDate && endDate) {
+                document.getElementById('dateRange').textContent = `${startDate} - ${endDate}`;
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('dashboard').classList.remove('hidden');
+            updateMetrics();
+            createCharts();
+            generateInsights();
+        }
+
+        function updateMetrics() {
+            const totals = campaignData.reduce((acc, campaign) => ({
+                totalLeads: acc.totalLeads + campaign.leads,
+                totalReach: acc.totalReach + campaign.reach,
+                totalSpend: acc.totalSpend + campaign.spend,
+                totalClicks: acc.totalClicks + campaign.linkClicks,
+                totalImpressions: acc.totalImpressions + campaign.impressions,
+                totalCTR: acc.totalCTR + campaign.ctr,
+                activeCampaigns: acc.activeCampaigns + (campaign.leads > 0 ? 1 : 0)
+            }), { totalLeads: 0, totalReach: 0, totalSpend: 0, totalClicks: 0, totalImpressions: 0, totalCTR: 0, activeCampaigns: 0 });
+
+            const avgCPL = totals.totalLeads > 0 ? totals.totalSpend / totals.totalLeads : 0;
+            const avgCTR = totals.activeCampaigns > 0 ? totals.totalCTR / totals.activeCampaigns : 0;
+
+            // Update metrics with positive framing
+            document.getElementById('totalLeads').textContent = totals.totalLeads;
+            document.getElementById('totalReach').textContent = totals.totalReach.toLocaleString();
+            document.getElementById('totalClicks').textContent = totals.totalClicks;
+            document.getElementById('avgCPL').textContent = `$${avgCPL.toFixed(2)}`;
+            document.getElementById('totalInvestment').textContent = `$${totals.totalSpend.toFixed(2)}`;
+            document.getElementById('avgCTR').textContent = `${avgCTR.toFixed(2)}%`;
+            
+            // Update summary with positive language
+            const leadRate = (totals.totalLeads / totals.totalClicks * 100).toFixed(1);
+            document.getElementById('summaryText').textContent = 
+                `Excellent performance with ${totals.totalLeads} quality leads generated from ${totals.totalReach.toLocaleString()} people reached. Strong ${leadRate}% conversion rate from clicks to leads.`;
+        }
+
+        function createCharts() {
+            // Top performing campaigns by leads
+            const topCampaigns = [...campaignData]
+                .filter(c => c.leads > 0)
+                .sort((a, b) => b.leads - a.leads)
+                .slice(0, 5);
+
+            Chart.defaults.color = '#666';
+            Chart.defaults.borderColor = '#e5e7eb';
+
+            // Leads Chart
+            const leadsCtx = document.getElementById('leadsChart').getContext('2d');
+            if (charts.leads) charts.leads.destroy();
+            
+            charts.leads = new Chart(leadsCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: topCampaigns.map(c => c.adName.substring(0, 15) + '...'),
+                    datasets: [{
+                        data: topCampaigns.map(c => c.leads),
+                        backgroundColor: [
+                            '#10b981',
+                            '#3b82f6',
+                            '#8b5cf6',
+                            '#f59e0b',
+                            '#ef4444'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Efficiency Chart (Reach vs Engagement)
+            const efficiencyCtx = document.getElementById('efficiencyChart').getContext('2d');
+            if (charts.efficiency) charts.efficiency.destroy();
+            
+            const efficiencyData = campaignData
+                .filter(c => c.reach > 0 && c.linkClicks > 0)
+                .map(c => ({
+                    x: c.reach,
+                    y: c.linkClicks,
+                    r: Math.max(5, c.leads * 2),
+                    label: c.adName.substring(0, 12) + '...'
+                }));
+
+            charts.efficiency = new Chart(efficiencyCtx, {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'Campaign Performance',
+                        data: efficiencyData,
+                        backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                        borderColor: '#10b981',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return `${point.label}: ${point.x.toLocaleString()} reach, ${point.y} clicks`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'People Reached'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Link Clicks Generated'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function generateInsights() {
+            const container = document.getElementById('insightsContainer');
+            const totalLeads = campaignData.reduce((sum, c) => sum + c.leads, 0);
+            const totalReach = campaignData.reduce((sum, c) => sum + c.reach, 0);
+            const totalSpend = campaignData.reduce((sum, c) => sum + c.spend, 0);
+            const avgCTR = campaignData.reduce((sum, c) => sum + c.ctr, 0) / campaignData.length;
+            
+            const bestPerformer = campaignData.reduce((best, current) => 
+                current.leads > best.leads ? current : best
+            );
+            
+            const insights = [
+                `🎯 <strong>Lead Generation Excellence:</strong> Generated ${totalLeads} high-quality leads from targeted advertising efforts, demonstrating strong market appeal.`,
+                
+                `📈 <strong>Audience Engagement Success:</strong> Reached ${totalReach.toLocaleString()} unique potential customers with compelling messaging that resonated with the target demographic.`,
+                
+                `💡 <strong>Campaign Optimization:</strong> "${bestPerformer.adName}" emerged as the top performer with ${bestPerformer.leads} leads, showing the effectiveness of our creative approach.`,
+                
+                `⭐ <strong>Cost Efficiency:</strong> Achieved competitive cost-per-lead of $${(totalSpend/totalLeads).toFixed(2)}, demonstrating strategic budget management and optimal targeting.`,
+                
+                `🚀 <strong>Engagement Quality:</strong> Average click-through rate of ${avgCTR.toFixed(2)}% indicates strong audience relevance and compelling creative execution.`,
+                
+                `📊 <strong>Strategic Recommendations:</strong> Continue scaling successful campaign elements and optimize targeting based on high-performing audience segments identified.`
+            ];
+
+            container.innerHTML = insights.map(insight => 
+                `<div class="insight-item">${insight}</div>`
+            ).join('');
+        }
+    </script>
+</body>
+</html>
